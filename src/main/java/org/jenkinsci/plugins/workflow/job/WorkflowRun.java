@@ -37,7 +37,10 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
+import hudson.console.ConsoleLogFilter;
 import hudson.console.LineTransformationOutputStream;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildableItemWithBuildWrappers;
 import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.Queue;
@@ -51,6 +54,7 @@ import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import hudson.security.ACL;
+import hudson.tasks.BuildWrapper;
 import hudson.util.Iterators;
 import hudson.util.NullStream;
 import hudson.util.PersistedList;
@@ -80,6 +84,8 @@ import javax.annotation.concurrent.GuardedBy;
 import jenkins.model.Jenkins;
 import jenkins.model.lazy.BuildReference;
 import jenkins.model.lazy.LazyBuildMixIn;
+import jenkins.model.logging.LoggingMethod;
+import jenkins.model.logging.LoggingMethodLocator;
 import jenkins.model.queue.AsynchronousExecution;
 import jenkins.security.NotReallyRoleSensitiveCallable;
 import jenkins.util.Timer;
@@ -184,6 +190,27 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         return getRunMixIn().getNextBuild();
     }
 
+    
+    private StreamBuildListener createBuildListener(@Nonnull WorkflowRun run, @Nonnull OutputStream logger) 
+            throws IOException, InterruptedException {
+        // Global log filters
+        for (ConsoleLogFilter filter : ConsoleLogFilter.all()) {
+            logger = filter.decorateLogger(run, logger);
+        }
+        
+        // Decorate logger by logging method of this build
+        final LoggingMethod located = LoggingMethodLocator.locate(this);
+        final ConsoleLogFilter f = located.createLoggerDecorator(this);
+        if (f != null) {
+            LOGGER.log(Level.INFO, "Decorated run {0} by a custom log filter {1}",
+                    new Object[] {this, f});
+            logger = f.decorateLogger(run, logger);
+        }
+        
+        listener = new StreamBuildListener(logger,Charset.defaultCharset());
+        return listener;
+    }
+    
     /**
      * Actually executes the workflow.
      */
@@ -194,7 +221,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
         try {
             onStartBuilding();
             OutputStream logger = new FileOutputStream(getLogFile());
-            listener = new StreamBuildListener(logger, Charset.defaultCharset());
+            listener = createBuildListener(this, logger);
             listener.started(getCauses());
             RunListener.fireStarted(this, listener);
             updateSymlinks(listener);

@@ -31,6 +31,11 @@
         <version>2.5</version>
         <relativePath />
     </parent>
+    
+    <properties>
+      <jenkins.version>2.23-SNAPSHOT</jenkins.version>
+    </properties>
+    
     <groupId>org.jenkins-ci.plugins.workflow</groupId>
     <artifactId>workflow-job</artifactId>
     <version>2.7-SNAPSHOT</version>
@@ -61,9 +66,6 @@
             <url>http://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
-    <properties>
-        <jenkins.version>1.642.3</jenkins.version>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
